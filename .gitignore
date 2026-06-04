@@ -1,0 +1,102 @@
+# =====================
+# Python
+# =====================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# =====================
+# Virtual environments
+# =====================
+.venv/
+venv/
+ENV/
+env/
+
+# Poetry virtualenvs (якщо раптом локальні)
+.cache/pypoetry/
+
+# =====================
+# IDE
+# =====================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =====================
+# OS files
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Logs
+# =====================
+*.log
+logs/
+
+# =====================
+# Environment variables
+# =====================
+.env
+.env.*
+!.env.example
+
+# =====================
+# Alembic
+# =====================
+migrations/versions/*.pyc
+
+# =====================
+# Testing
+# =====================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# =====================
+# mypy / lint
+# =====================
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.dmypy.json
+
+# =====================
+# Docker
+# =====================
+docker-compose.override.yml
+
+# =====================
+# Local DB files (SQLite fallback)
+# =====================
+*.db
+*.sqlite
+*.sqlite3
+
+# =====================
+# Jupyter
+# =====================
+.ipynb_checkpoints/
