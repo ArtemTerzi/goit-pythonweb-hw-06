@@ -1,10 +1,8 @@
 import random
-from datetime import datetime
 from faker import Faker
-from sqlalchemy import select
 
 from connect import session, engine
-from models import Base, Group, Student, Course, Teacher, student_m2m_course
+from models import Base, Group, Student, Course, Teacher, Grade, student_m2m_course
 
 fake = Faker()
 
@@ -54,28 +52,42 @@ def seed_data():
         session.add_all(students)
         session.flush()
 
-        grades_data = []
+        m2m_rows = []
+        grade_objects = []
+
         for student in students:
             num_student_courses = random.randint(3, len(courses))
             student_courses = random.sample(courses, num_student_courses)
 
             for course in student_courses:
-                grades_data.append(
-                    {
-                        "student_id": student.id,
-                        "course_id": course.id,
-                        "score": random.randint(50, 100),
-                        "created": fake.date_time_between(
-                            start_date="-6m", end_date="now"
-                        ),
-                    }
-                )
+                m2m_rows.append({"student_id": student.id, "course_id": course.id})
 
-        if grades_data:
-            session.execute(student_m2m_course.insert(), grades_data)
+                num_grades = random.randint(1, 5)
+                for _ in range(num_grades):
+                    grade_objects.append(
+                        Grade(
+                            student_id=student.id,
+                            course_id=course.id,
+                            score=random.randint(50, 100),
+                            created_at=fake.date_time_between(
+                                start_date="-6m", end_date="now"
+                            ),
+                        )
+                    )
+
+        if m2m_rows:
+            session.execute(student_m2m_course.insert(), m2m_rows)
+
+        if grade_objects:
+            session.add_all(grade_objects)
 
         session.commit()
-        print("The database has been populated with random English data.")
+        print("The database has been populated with random data.")
+        print(f"  Groups:   {len(groups)}")
+        print(f"  Teachers: {len(teachers)}")
+        print(f"  Courses:  {len(courses)}")
+        print(f"  Students: {len(students)}")
+        print(f"  Grades:   {len(grade_objects)}")
 
     except Exception as e:
         session.rollback()
@@ -86,5 +98,4 @@ def seed_data():
 
 if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
-
     seed_data()

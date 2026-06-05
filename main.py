@@ -1,7 +1,7 @@
 import argparse
 from sqlalchemy import select
 from connect import session
-from models import Teacher, Group, Student, Course
+from models import Teacher, Group, Student, Course, Grade
 
 
 def handle_teacher(action, args):
@@ -182,6 +182,64 @@ def handle_course(action, args):
             print(f"Course with ID={args.id} not found.")
 
 
+def handle_grade(action, args):
+    if action == "create":
+        if not args.student_id or not args.course_id or args.score is None:
+            print(
+                "Error: --student_id, --course_id, and --score are required to create a Grade."
+            )
+            return
+        grade = Grade(
+            student_id=args.student_id,
+            course_id=args.course_id,
+            score=args.score,
+        )
+        session.add(grade)
+        session.commit()
+        print(
+            f"Successfully created Grade: ID={grade.id}, Student ID={grade.student_id}, "
+            f"Course ID={grade.course_id}, Score={grade.score}"
+        )
+
+    elif action == "list":
+        stmt = select(Grade).order_by(Grade.id)
+        grades = session.execute(stmt).scalars().all()
+        for g in grades:
+            print(
+                f"ID: {g.id:<5} | Student ID: {g.student_id:<5} | "
+                f"Course ID: {g.course_id:<5} | Score: {g.score:<5} | Date: {g.created_at}"
+            )
+
+    elif action == "update":
+        if not args.id:
+            print("Error: --id is required for update.")
+            return
+        grade = session.get(Grade, args.id)
+        if grade:
+            if args.score is not None:
+                grade.score = args.score
+            if args.student_id is not None:
+                grade.student_id = args.student_id
+            if args.course_id is not None:
+                grade.course_id = args.course_id
+            session.commit()
+            print(f"Successfully updated Grade ID={args.id}")
+        else:
+            print(f"Grade with ID={args.id} not found.")
+
+    elif action == "remove":
+        if not args.id:
+            print("Error: --id is required for removal.")
+            return
+        grade = session.get(Grade, args.id)
+        if grade:
+            session.delete(grade)
+            session.commit()
+            print(f"Successfully removed Grade ID={args.id}")
+        else:
+            print(f"Grade with ID={args.id} not found.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="CLI program for CRUD operations on Database."
@@ -198,7 +256,7 @@ def main():
     parser.add_argument(
         "-m",
         "--model",
-        choices=["Teacher", "Group", "Student", "Course"],
+        choices=["Teacher", "Group", "Student", "Course", "Grade"],
         required=True,
         help="Database model",
     )
@@ -212,10 +270,12 @@ def main():
     )
 
     parser.add_argument("--group_id", type=int, help="Group ID for Student")
-
     parser.add_argument("--teacher_id", type=int, help="Teacher ID for Course")
-
     parser.add_argument("--description", type=str, help="Description for Course")
+
+    parser.add_argument("--student_id", type=int, help="Student ID for Grade")
+    parser.add_argument("--course_id", type=int, help="Course ID for Grade")
+    parser.add_argument("--score", type=int, help="Score value for Grade (0-100)")
 
     args = parser.parse_args()
 
@@ -227,6 +287,8 @@ def main():
         handle_student(args.action, args)
     elif args.model == "Course":
         handle_course(args.action, args)
+    elif args.model == "Grade":
+        handle_grade(args.action, args)
 
 
 if __name__ == "__main__":

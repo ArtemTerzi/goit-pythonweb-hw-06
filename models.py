@@ -21,8 +21,6 @@ student_m2m_course = Table(
     Base.metadata,
     Column("student_id", Integer, ForeignKey("students.id", ondelete="CASCADE")),
     Column("course_id", Integer, ForeignKey("courses.id", ondelete="CASCADE")),
-    Column("score", Integer),
-    Column("created", DateTime, default=func.now()),
     PrimaryKeyConstraint("student_id", "course_id"),
 )
 
@@ -46,6 +44,7 @@ class Student(Base):
     courses: Mapped[list["Course"]] = relationship(
         secondary=student_m2m_course, back_populates="students"
     )
+    grades: Mapped[list["Grade"]] = relationship(back_populates="student")
 
 
 class Course(Base):
@@ -59,6 +58,7 @@ class Course(Base):
     students: Mapped[list["Student"]] = relationship(
         secondary=student_m2m_course, back_populates="courses"
     )
+    grades: Mapped[list["Grade"]] = relationship(back_populates="course")
 
 
 class Teacher(Base):
@@ -66,3 +66,19 @@ class Teacher(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False)
     courses: Mapped[list["Course"]] = relationship(back_populates="teacher")
+
+
+class Grade(Base):
+    __tablename__ = "grades"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("students.id", ondelete="CASCADE"), nullable=False
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), nullable=False
+    )
+    score: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+
+    student: Mapped["Student"] = relationship(back_populates="grades")
+    course: Mapped["Course"] = relationship(back_populates="grades")

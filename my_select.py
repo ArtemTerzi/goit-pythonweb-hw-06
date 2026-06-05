@@ -1,70 +1,70 @@
 from sqlalchemy import func, desc, select
 
 from connect import session
-from models import Base, Group, Student, Course, Teacher, student_m2m_course
+from models import Base, Group, Student, Course, Teacher, Grade, student_m2m_course
 
 
 def select_1():
-    avg_score = func.round(func.avg(student_m2m_course.c.score), 2).label("avg_score")
-
-    result = (
-        session.query(Student, avg_score)
-        .join(student_m2m_course, Student.id == student_m2m_course.c.student_id)
-        .group_by(Student.id)
-        .order_by(desc("avg_score"))
-        .limit(5)
-        .all()
-    )
-
-    return result
-
-
-def select_2(course_id):
-    avg_score = func.round(func.avg(student_m2m_course.c.score), 2).label("avg_score")
+    # 1. 5 students with the highest average score in all courses.
+    avg_score = func.round(func.avg(Grade.score), 2).label("avg_score")
 
     stmt = (
         select(Student, avg_score)
-        .join(student_m2m_course, Student.id == student_m2m_course.c.student_id)
-        .filter(student_m2m_course.c.course_id == course_id)
+        .join(Grade, Student.id == Grade.student_id)
+        .group_by(Student.id)
+        .order_by(desc("avg_score"))
+        .limit(5)
+    )
+
+    return session.execute(stmt).all()
+
+
+def select_2(course_id):
+    # 2. The student with the highest grade point average in a particular course.
+    avg_score = func.round(func.avg(Grade.score), 2).label("avg_score")
+
+    stmt = (
+        select(Student, avg_score)
+        .join(Grade, Student.id == Grade.student_id)
+        .filter(Grade.course_id == course_id)
         .group_by(Student.id)
         .order_by(desc("avg_score"))
         .limit(1)
     )
 
-    result = session.execute(stmt).first()
-    return result
+    return session.execute(stmt).first()
 
 
 def select_3(course_id):
-    avg_score = func.round(func.avg(student_m2m_course.c.score), 2).label("avg_score")
+    # 3. Average score in groups in a particular subject.
+    avg_score = func.round(func.avg(Grade.score), 2).label("avg_score")
 
     stmt = (
         select(Group.name, avg_score)
-        .select_from(student_m2m_course)
-        .join(Student, Student.id == student_m2m_course.c.student_id)
-        .join(Group, Group.id == Student.group_id)
-        .filter(student_m2m_course.c.course_id == course_id)
+        .join(Student, Student.group_id == Group.id)
+        .join(Grade, Grade.student_id == Student.id)
+        .filter(Grade.course_id == course_id)
         .group_by(Group.id)
         .order_by(Group.name)
     )
 
-    result = session.execute(stmt).all()
-    return result
+    return session.execute(stmt).all()
 
 
 def select_4():
-    stmt = select(func.round(func.avg(student_m2m_course.c.score), 2))
-
-    result = session.execute(stmt).scalar()
-    return result
+    # 4.  Average score on the stream (across the entire grading scale).
+    stmt = select(func.round(func.avg(Grade.score), 2))
+    return session.execute(stmt).scalar()
 
 
 def select_5(teacher_id):
+    # 5. What courses a particular teacher teaches.
     stmt = select(Course.description).filter(Course.teacher_id == teacher_id)
     return session.execute(stmt).all()
 
 
 def select_6(group_id):
+    # 6. A list of students in a particular group.
     stmt = (
         select(Student.name).filter(Student.group_id == group_id).order_by(Student.name)
     )
@@ -72,29 +72,28 @@ def select_6(group_id):
 
 
 def select_7(group_id, course_id):
+    # 7. The grades of students in a particular group in a particular subject.
     stmt = (
-        select(Student.name, student_m2m_course.c.score)
-        .join(student_m2m_course, Student.id == student_m2m_course.c.student_id)
-        .filter(
-            Student.group_id == group_id, student_m2m_course.c.course_id == course_id
-        )
-        .order_by(Student.name)
+        select(Student.name, Grade.score, Grade.created_at)
+        .join(Grade, Student.id == Grade.student_id)
+        .filter(Student.group_id == group_id, Grade.course_id == course_id)
+        .order_by(Student.name, Grade.created_at)
     )
     return session.execute(stmt).all()
 
 
 def select_8(teacher_id):
+    # 8. The average grade that a particular teacher gives in his subjects.
     stmt = (
-        select(func.round(func.avg(student_m2m_course.c.score), 2))
-        .select_from(student_m2m_course)
-        # Об'єднуємо оцінки з курсами, щоб перевірити, хто викладач
-        .join(Course, Course.id == student_m2m_course.c.course_id)
+        select(func.round(func.avg(Grade.score), 2))
+        .join(Course, Course.id == Grade.course_id)
         .filter(Course.teacher_id == teacher_id)
     )
     return session.execute(stmt).scalar()
 
 
 def select_9(student_id):
+    # 9. A list of courses that a particular student attends.
     stmt = (
         select(Course.description)
         .join(student_m2m_course, Course.id == student_m2m_course.c.course_id)
@@ -105,10 +104,10 @@ def select_9(student_id):
 
 
 def select_10(student_id, teacher_id):
+    # 10. A list of courses that a particular teacher teaches to a particular student.
     stmt = (
         select(Course.description)
         .join(student_m2m_course, Course.id == student_m2m_course.c.course_id)
-        # Фільтруємо за студентом та викладачем курсу одночасно
         .filter(
             student_m2m_course.c.student_id == student_id,
             Course.teacher_id == teacher_id,
@@ -119,12 +118,12 @@ def select_10(student_id, teacher_id):
 
 
 def select_additional_1(student_id, teacher_id):
+    # 11. The average grade that a particular teacher gives to a particular student.
     stmt = (
-        select(func.round(func.avg(student_m2m_course.c.score), 2))
-        .select_from(student_m2m_course)
-        .join(Course, Course.id == student_m2m_course.c.course_id)
+        select(func.round(func.avg(Grade.score), 2))
+        .join(Course, Course.id == Grade.course_id)
         .filter(
-            student_m2m_course.c.student_id == student_id,
+            Grade.student_id == student_id,
             Course.teacher_id == teacher_id,
         )
     )
@@ -132,22 +131,21 @@ def select_additional_1(student_id, teacher_id):
 
 
 def select_additional_2(group_id, course_id):
+    # 12. The grades of students in a particular group in a particular subject in the last class.
     subq = (
-        select(func.max(student_m2m_course.c.created))
-        .join(Student, Student.id == student_m2m_course.c.student_id)
-        .filter(
-            Student.group_id == group_id, student_m2m_course.c.course_id == course_id
-        )
+        select(func.max(Grade.created_at))
+        .join(Student, Student.id == Grade.student_id)
+        .filter(Student.group_id == group_id, Grade.course_id == course_id)
         .scalar_subquery()
     )
 
     stmt = (
-        select(Student.name, student_m2m_course.c.score, student_m2m_course.c.created)
-        .join(student_m2m_course, Student.id == student_m2m_course.c.student_id)
+        select(Student.name, Grade.score, Grade.created_at)
+        .join(Grade, Student.id == Grade.student_id)
         .filter(
             Student.group_id == group_id,
-            student_m2m_course.c.course_id == course_id,
-            student_m2m_course.c.created == subq,
+            Grade.course_id == course_id,
+            Grade.created_at == subq,
         )
     )
     return session.execute(stmt).all()
@@ -155,128 +153,76 @@ def select_additional_2(group_id, course_id):
 
 if __name__ == "__main__":
     # 1. 5 students with the highest average score in all courses.
-    print(
-        "--------------- 1. 5 students with the highest average score in all courses-----------------"
-    )
-    top_students = select_1()
-    for student, avg in top_students:
-        print(f"Student: {student.name:<25} | Average Score: {avg}")
+    print("--- 1. 5 students with the highest average score in all courses. ---")
+    for student, avg in select_1():
+        print(f"  {student.name:<25} | Середній бал: {avg}")
 
     # 2. The student with the highest grade point average in a particular course.
     print(
-        "--------------- 2. The student with the highest grade point average in a particular course.-----------------"
+        "\n--- 2. The student with the highest grade point average in a particular course ---"
     )
-    course_id_to_check = 1
-    best_student_data = select_2(course_id_to_check)
+    result = select_2(1)
+    if result:
+        student, avg = result
+        print(f"  {student.name} | Середній бал: {avg}")
 
-    if best_student_data:
-        student, avg_score = best_student_data
-        print(f"The best student in course #{course_id_to_check}:")
-        print(f"Name: {student.name} | Average score: {avg_score}")
-    else:
-        print(f"No grades found for course with ID {course_id_to_check}.")
+    # 3. Average score in groups in a particular subject.
+    print("\n--- 3. Average score in groups in a particular subject. ---")
+    for group_name, avg in select_3(1):
+        print(f"  {group_name:<12} | {avg}")
 
-    # 3 Average score in groups in a particular subject.
+    # 4.  Average score on the stream (across the entire grading scale).
     print(
-        "--------------- 3 Average score in groups in a particular subject.-----------------"
+        "\n--- 4.  Average score on the stream (across the entire grading scale). ---"
     )
-    group_averages = select_3(course_id_to_check)
+    print(f"  {select_4()}")
 
-    if group_averages:
-        print(f"Average score in groups for course #{course_id_to_check}:")
-        for group_name, avg_score in group_averages:
-            print(f"Group: {group_name:<12} | Average score: {avg_score}")
-    else:
-        print(f"No grades found in any group for course with ID {course_id_to_check}.")
-
-    # 4 Average score on the stream (across the entire grading scale).
-    print(
-        "--------------- 4 Average score on the stream (across the entire grading scale)-----------------"
-    )
-    overall_average = select_4()
-
-    if overall_average is not None:
-        print(
-            f"Overall average score across all students and courses: {overall_average}"
-        )
-    else:
-        print("No grades found in the database.")
-
-    # 5 What courses a particular teacher teaches.
-    print(
-        "--------------- 5 What courses a particular teacher teaches.-----------------"
-    )
-    teacher_id = 2
-    courses = select_5(teacher_id)
-    print(f"Courses taught by teacher #{teacher_id}:")
-    for (course_name,) in courses:
-        print(f"- {course_name}")
+    # 5. What courses a particular teacher teaches.
+    print("\n--- 5. What courses a particular teacher teaches. ---")
+    for (name,) in select_5(2):
+        print(f"  - {name}")
 
     # 6 A list of students in a particular group.
-    print(
-        "--------------- 6 A list of students in a particular group.-----------------"
-    )
-    group_id = 1
-    students = select_6(group_id)
-    print(f"Students in group #{group_id}:")
-    for (student_name,) in students:
-        print(f"- {student_name}")
+    print("\n---- 6 A list of students in a particular group.---")
+    for (name,) in select_6(1):
+        print(f"  - {name}")
 
-    # 7 The grades of students in a particular group in a particular subject.
+    # 7. The grades of students in a particular group in a particular subject.
     print(
-        "--------------- 7 The grades of students in a particular group in a particular subject.-----------------"
+        "\n--- 7. The grades of students in a particular group in a particular subject. ---"
     )
-    group_id, course_id = 1, 1
-    grades = select_7(group_id, course_id)
-    print(f"Grades in group #{group_id} for course #{course_id}:")
-    for student_name, score in grades:
-        print(f"Student: {student_name:<25} | Score: {score}")
+    for name, score, date in select_7(1, 1):
+        print(f"  {name:<25} | {score} | {date}")
 
-    # 8 The average grade that a particular teacher gives in his subjects.
+    # 8. The average grade that a particular teacher gives in his subjects.
     print(
-        "--------------- 8 The average grade that a particular teacher gives in his subjects.-----------------"
+        "\n--- 8. The average grade that a particular teacher gives in his subjects.---"
     )
-    teacher_id = 1
-    avg_score = select_8(teacher_id)
-    if avg_score is not None:
-        print(f"Average score given by teacher #{teacher_id}: {avg_score}")
-    else:
-        print(f"No grades found for courses taught by teacher #{teacher_id}.")
+    print(f"  {select_8(2)}")
 
-    # 9 A list of courses that a particular student attends.
+    # 9. A list of courses that a particular student attends.
     print(
-        "--------------- 9 A list of courses that a particular student attends.-----------------"
+        "--------------- 9. A list of courses that a particular student attends.-----------------"
     )
-    student_id = 1
-    courses = select_9(student_id)
-    print(f"Courses attended by student #{student_id}:")
-    for (course_name,) in courses:
-        print(f"- {course_name}")
+    for (name,) in select_9(1):
+        print(f"  - {name}")
 
-    # 10 A list of courses that a particular teacher teaches to a particular student.
+    # 10. A list of courses that a particular teacher teaches to a particular student.
     print(
-        "--------------- 10 A list of courses that a particular teacher teaches to a particular student.-----------------"
+        "--------------- 10. A list of courses that a particular teacher teaches to a particular student.-----------------"
     )
-    student_id, teacher_id = 1, 1
-    courses = select_10(student_id, teacher_id)
-    print(f"Courses taught to student #{student_id} by teacher #{teacher_id}:")
-    for (course_name,) in courses:
-        print(f"- {course_name}")
+    for (name,) in select_10(1, 2):
+        print(f"  - {name}")
 
-    # 11 The average grade that a particular teacher gives to a particular student.
+    # 11. The average grade that a particular teacher gives to a particular student.
     print(
-        "--------------- 11 The average grade that a particular teacher gives to a particular student.-----------------"
+        "--------------- 11. The average grade that a particular teacher gives to a particular student.-----------------"
     )
-    s_id, t_id = 1, 1
-    avg_score = select_additional_1(s_id, t_id)
-    print(f"Average score given by teacher #{t_id} to student #{s_id}: {avg_score}")
+    print(f"  {select_additional_1(1, 2)}")
 
-    # 12 The grades of students in a particular group in a particular subject in the last class.
+    # 12. The grades of students in a particular group in a particular subject in the last class.
     print(
-        "--------------- 12 The grades of students in a particular group in a particular subject in the last class.-----------------"
+        "--------------- 12. The grades of students in a particular group in a particular subject in the last class.-----------------"
     )
-    g_id, c_id = 1, 1
-    last_lesson_grades = select_additional_2(g_id, c_id)
-    print(f"Grades in group #{g_id} for course #{c_id} on the last lesson:")
-    for student_name, score, date in last_lesson_grades:
-        print(f"Student: {student_name:<25} | Score: {score} | Date: {date}")
+    for name, score, date in select_additional_2(1, 1):
+        print(f"  {name:<25} | {score} | {date}")
